@@ -28,19 +28,40 @@
     "main": "./out/extension.js",
     "contributes": {
         "commands": [
-        {
-            "command": "mql-vscode.compile",
-            "title": "Compile",
-            "category": "MQL"
-        }
-        ],
-        "menus": {
-        "commandPalette": [
             {
-            "command": "mql-vscode.compile",
-            "when": "resourceExtname == '.mqh' || resourceExtname == '.mq4' || resourceExtname == '.mq5'"
+                "command": "mql-vscode.compile",
+                "title": "Compile",
+                "category": "MQL"
             }
-        ]
+        ],
+        "configuration": {
+            "title": "MQL",
+            "type": "object",
+            "properties": {
+                "mql-vscode.winePath": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to the Wine executable. Only needed on Linux and MacOS."
+                },
+                "mql-vscode.metaEditor4Path": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to the MetaEditor 4 executable."
+                },
+                "mql-vscode.metaEditor5Path": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to the MetaEditor 5 executable."
+                }
+            }
+        },
+        "menus": {
+            "commandPalette": [
+                {
+                    "command": "mql-vscode.compile",
+                    "when": "resourceExtname == '.mqh' || resourceExtname == '.mq4' || resourceExtname == '.mq5'"
+                }
+            ]
         }
     },
     "scripts": {
