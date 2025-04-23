@@ -41,16 +41,19 @@
                 "mql-vscode.winePath": {
                     "type": "string",
                     "default": "",
+                    "scope": "machine-overridable",
                     "description": "Path to the Wine executable. Only needed on Linux and MacOS."
                 },
                 "mql-vscode.metaEditor4Path": {
                     "type": "string",
                     "default": "",
+                    "scope": "machine-overridable",
                     "description": "Path to the MetaEditor 4 executable."
                 },
                 "mql-vscode.metaEditor5Path": {
                     "type": "string",
                     "default": "",
+                    "scope": "machine-overridable",
                     "description": "Path to the MetaEditor 5 executable."
                 }
             }
