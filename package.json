@@ -55,6 +55,12 @@
                     "default": "",
                     "scope": "machine-overridable",
                     "description": "Path to the MetaEditor 5 executable."
+                },
+                "mql-vscode.retainCompilationLogFile": {
+                    "type": "boolean",
+                    "default": false,
+                    "scope": "machine-overridable",
+                    "description": "Retain the compilation log file after compilation."
                 }
             }
         },

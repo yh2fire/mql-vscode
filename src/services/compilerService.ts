@@ -6,6 +6,8 @@ import * as vscode from 'vscode';
 
 import { LogService } from './logService';
 
+const COMPILATION_LOG_FILE_NAME = 'mqlcompile.log';
+
 export class CompilerService {
     private config: vscode.WorkspaceConfiguration;
 
@@ -16,93 +18,171 @@ export class CompilerService {
     }
 
     public async compileCurrentFile(): Promise<void> {
-        // Get current editor
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            vscode.window.showInformationMessage('No active editor window');
+        const filePath = this.getCurrentFilePath();
+        if (!filePath) {
             return;
         }
 
-        // Get file information
-        const filePath = editor.document.fileName;
         const fileName = path.basename(filePath);
         const fileExtension = path.extname(fileName).slice(1);
 
-        // Validate file type
-        if (fileExtension !== 'mq4' && fileExtension !== 'mq5') {
-            vscode.window.showErrorMessage('MQL compilation only supports .mq4 and .mq5 files');
+        if (!this.validateFileExt(fileExtension)) {
             return;
         }
 
-        // Validate environment configuration
-        if (!this.validateEnvironment(fileExtension)) {
+        const winePath = this.getWinePath(os.platform());
+        if (!this.validateWinePath(winePath)) {
             return;
         }
 
-        try {
-            // Execute compilation
-            await this.executeCompilation(filePath, fileName, fileExtension);
-        } catch (error) {
-            this.logService.error(`Error during compilation: ${error}`);
-            vscode.window.showErrorMessage(`Compilation failed: ${error}`);
-        }
-    }
-
-    private validateEnvironment(fileExtension: string): boolean {
-        // Check Wine configuration (required for MacOS and Linux)
-        const winePath = os.platform() === 'win32' ? '' : this.config.get<string>('winePath');
-        if ((os.platform() === 'darwin' || os.platform() === 'linux') && !winePath) {
-            vscode.window.showErrorMessage('Wine path is not configured in the extension settings. Compilation cannot proceed without Wine on MacOS or Linux.');
-            return false;
+        const compilerPath = this.getCompilerPath(fileExtension);
+        if (!this.validateCompilerPath(compilerPath)) {
+            return;
         }
 
-        // Check MetaEditor path
-        const metaEditorSetting = fileExtension === 'mq4' ? 'metaEditor4Path' : 'metaEditor5Path';
-        const compilerPath = this.config.get<string>(metaEditorSetting);
-        if (!compilerPath) {
-            vscode.window.showErrorMessage(`MetaEditor ${fileExtension === 'mq4' ? '4' : '5'} path is not configured in the extension settings.`);
-            return false;
-        }
+        const command = this.buildCompilationCommand(winePath, compilerPath, fileName);
 
-        return true;
-    }
-
-    private async executeCompilation(filePath: string, fileName: string, fileExtension: string): Promise<void> {
         const fileDir = path.dirname(filePath);
-        const logFilePath = path.join(fileDir, 'mqlcompile.log');
-        const winePath = os.platform() === 'win32' ? '' : this.config.get<string>('winePath');
-        const compilerPath = fileExtension === 'mq4' 
-            ? this.config.get<string>('metaEditor4Path') 
-            : this.config.get<string>('metaEditor5Path');
-
-        // Prepare log file
-        fs.writeFileSync(logFilePath, '', { flag: 'w' });
-
-        // Construct compilation command
-        const command = `"${winePath}" "${compilerPath}" /compile:"${fileName}" /log:"mqlcompile.log"`.trim();
+        const logFilePath = path.join(fileDir, COMPILATION_LOG_FILE_NAME);
+        if (!this.prepareCompilationLog(logFilePath)) {
+            return;
+        }
 
         this.logService.show();
         this.logService.log(`Compiling "${fileName}" in directory: "${fileDir}"`);
         this.logService.log(`Command: ${command}`);
 
-        // Execute compilation
-        cp.exec(command, { cwd: fileDir }, (_error, _stdout, _stderr) => {
-            // Read and display log
-            try {
-                const logContent = fs.readFileSync(logFilePath, 'ucs-2');
-                this.logService.log(logContent.toString());
+        await this.executeCompilationCommand(command, fileDir);
+        vscode.window.showInformationMessage('Compilation completed. Check the log for details.');
 
-                vscode.window.showInformationMessage('Compilation completed. Check the log for details.');
-            } catch (readError) {
-                vscode.window.showErrorMessage(`Compilation completed, but error reading log file: ${readError}`);
-            }
+        if (!this.showCompilationLog(logFilePath)) {
+            return;
+        }
 
-            // Clean up log file
-            try {
-                fs.unlinkSync(logFilePath);
-            } catch (unlinkError) {
-                vscode.window.showErrorMessage(`Error deleting log file: ${unlinkError}. Feel free to delete it manually.`);
+        const shouldDeleteLog = !this.config.get<boolean>('retainCompilationLogFile');
+        if (shouldDeleteLog) {
+            this.cleanLogFile(logFilePath);
+        }
+    }
+
+    private getCurrentFilePath(): string {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showInformationMessage('No active editor window');
+            return '';
+        }
+        return editor.document.fileName;
+    }
+
+    private validateFileExt(fileExtension: string): boolean {
+        if (fileExtension !== 'mq4' && fileExtension !== 'mq5') {
+            vscode.window.showErrorMessage('MQL compilation only supports .mq4 and .mq5 files');
+            return false;
+        }
+        return true;
+    }
+
+    private getWinePath(osName: string): string {
+        if (osName === 'darwin') {
+            return this.config.get<string>('winePath') || '';
+        } else if (osName === 'linux') {
+            return this.config.get<string>('winePath') || '';
+        }
+        return '';
+    }
+
+    private validateWinePath(winePath: string): boolean {
+        if (os.platform() !== 'darwin' && os.platform() !== 'linux') {
+            return true;
+        }
+
+        if (!winePath) {
+            vscode.window.showErrorMessage('Wine path is not configured in the extension settings. Compilation cannot proceed without Wine on macOS or Linux.');
+            return false;
+        }
+
+        // Check if the Wine binary is readable and executable
+        try {
+            fs.accessSync(winePath, fs.constants.R_OK | fs.constants.X_OK);
+            if (!fs.statSync(winePath).isFile()) {
+                vscode.window.showErrorMessage('Wine path is not a valid file.');
+                return false;
             }
+            return true;
+        } catch (error) {
+            vscode.window.showErrorMessage(`Wine path is not valid: ${error}`);
+            return false;
+        }
+    }
+
+    private getCompilerPath(fileExtension: string): string {
+        const compilerPath = fileExtension === 'mq4' 
+            ? this.config.get<string>('metaEditor4Path') 
+            : this.config.get<string>('metaEditor5Path');
+        return compilerPath || '';
+    }
+
+    private validateCompilerPath(compilerPath: string): boolean {
+        if (!compilerPath) {
+            vscode.window.showErrorMessage('MetaEditor path is not configured in the extension settings.');
+            return false;
+        }
+
+        try {
+            fs.accessSync(compilerPath, fs.constants.R_OK);
+            if (!fs.statSync(compilerPath).isFile()) {
+                vscode.window.showErrorMessage('MetaEditor path is not a valid file.');
+                return false;
+            }
+            return true;
+        } catch (error) {
+            vscode.window.showErrorMessage(`MetaEditor path is not valid: ${error}`);
+            return false;
+        }
+    }
+
+    private buildCompilationCommand(winePath: string, compilerPath: string, fileName: string): string {
+        return `"${winePath}" "${compilerPath}" /compile:"${fileName}" /log:"${COMPILATION_LOG_FILE_NAME}"`.trim();
+    }
+
+    private prepareCompilationLog(logFilePath: string): boolean {
+        try {
+            fs.writeFileSync(logFilePath, '', { flag: 'w' });
+            return true;
+        } catch (error) {
+            this.logService.error(`Error preparing log file: ${error}`);
+            vscode.window.showErrorMessage(`Error preparing log file: ${error}`);
+            return false;
+        }
+    }
+
+    private async executeCompilationCommand(command: string, cwd: string): Promise<void> {
+        return new Promise((_resolve, _reject) => {
+            // Wine + MetaEditor compile returns non-zero even on success.
+            // Error and stderr do not show real compilation errors.
+            // Just always resolve and check errors in the log file.
+            cp.exec(command, { cwd });
         });
+    }
+
+    private showCompilationLog(logFilePath: string): boolean {
+        try {
+            const logContent = fs.readFileSync(logFilePath, 'ucs-2');
+            this.logService.log(logContent.toString());
+            return true;
+        } catch (error) {
+            vscode.window.showErrorMessage(`Error reading log file: ${error}`);
+            return false;
+        }
+    }
+
+    private cleanLogFile(logFilePath: string): boolean {
+        try {
+            fs.unlinkSync(logFilePath);
+            return true;
+        } catch (unlinkError) {
+            vscode.window.showErrorMessage(`Error deleting log file: ${unlinkError}. Feel free to delete it manually.`);
+            return false;
+        }
     }
 }
