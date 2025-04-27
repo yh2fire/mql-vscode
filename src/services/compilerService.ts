@@ -6,7 +6,32 @@ import * as vscode from 'vscode';
 
 import { LogService } from './logService';
 
-const COMPILATION_LOG_FILE_NAME = 'mqlcompile.log';
+export const COMPILATION_LOG_FILE_NAME = 'mqlcompile.log';
+
+export class CompilerSettings {
+    public fileDir: string;
+    public fileName: string;
+    public fileExtension: string;
+    public winePath: string;
+    public compilerPath: string;
+    public logFilePath: string;
+
+    constructor(
+        fileDir: string,
+        fileName: string,
+        fileExtension: string,
+        winePath: string,
+        compilerPath: string,
+        logFilePath: string
+    ) {
+        this.fileDir = fileDir;
+        this.fileName = fileName;
+        this.fileExtension = fileExtension;
+        this.winePath = winePath;
+        this.compilerPath = compilerPath;
+        this.logFilePath = logFilePath;
+    }
+}
 
 export class CompilerService {
     private config: vscode.WorkspaceConfiguration;
@@ -23,46 +48,51 @@ export class CompilerService {
             return;
         }
 
-        const fileName = path.basename(filePath);
-        const fileExtension = path.extname(fileName).slice(1);
-
-        if (!this.validateFileExt(fileExtension)) {
-            return;
-        }
-
-        const winePath = this.getWinePath(os.platform());
-        if (!this.validateWinePath(winePath)) {
-            return;
-        }
-
-        const compilerPath = this.getCompilerPath(fileExtension);
-        if (!this.validateCompilerPath(compilerPath)) {
-            return;
-        }
-
-        const command = this.buildCompilationCommand(winePath, compilerPath, fileName);
-
-        const fileDir = path.dirname(filePath);
-        const logFilePath = path.join(fileDir, COMPILATION_LOG_FILE_NAME);
-        if (!this.prepareCompilationLog(logFilePath)) {
+        const settings = this.prepare(filePath);
+        if (!settings) {
             return;
         }
 
         this.logService.show();
-        this.logService.log(`Compiling "${fileName}" in directory: "${fileDir}"`);
-        this.logService.log(`Command: ${command}`);
+        this.logService.log(`Compiling "${settings.fileName}" in directory: "${settings.fileDir}"`);
 
-        await this.executeCompilationCommand(command, fileDir);
-        vscode.window.showInformationMessage('Compilation completed. Check the log for details.');
+        this.compile(settings).then(() => {
+            if (!this.showCompilationLog(settings.logFilePath)) {
+                return;
+            }
 
-        if (!this.showCompilationLog(logFilePath)) {
-            return;
+            const shouldDeleteLog = !this.config.get<boolean>('retainCompilationLogFile');
+            if (shouldDeleteLog) {
+                this.cleanLogFile(settings.logFilePath);
+            }
+        });
+    }
+
+    private prepare(filePath: string): CompilerSettings | null {
+        const fileName = path.basename(filePath);
+        const fileExtension = path.extname(fileName).slice(1);
+
+        if (!this.validateFileExt(fileExtension)) {
+            return null;
         }
 
-        const shouldDeleteLog = !this.config.get<boolean>('retainCompilationLogFile');
-        if (shouldDeleteLog) {
-            this.cleanLogFile(logFilePath);
+        const winePath = this.getWinePath(os.platform());
+        if (!this.validateWinePath(winePath)) {
+            return null;
         }
+
+        const compilerPath = this.getCompilerPath(fileExtension);
+        if (!this.validateCompilerPath(compilerPath)) {
+            return null;
+        }
+
+        const fileDir = path.dirname(filePath);
+        const logFilePath = path.join(fileDir, COMPILATION_LOG_FILE_NAME);
+        if (!this.prepareCompilationLog(logFilePath)) {
+            return null;
+        }
+
+        return new CompilerSettings(fileDir, fileName, fileExtension, winePath, compilerPath, logFilePath);
     }
 
     private getCurrentFilePath(): string {
@@ -141,10 +171,6 @@ export class CompilerService {
         }
     }
 
-    private buildCompilationCommand(winePath: string, compilerPath: string, fileName: string): string {
-        return `"${winePath}" "${compilerPath}" /compile:"${fileName}" /log:"${COMPILATION_LOG_FILE_NAME}"`.trim();
-    }
-
     private prepareCompilationLog(logFilePath: string): boolean {
         try {
             fs.writeFileSync(logFilePath, '', { flag: 'w' });
@@ -156,13 +182,21 @@ export class CompilerService {
         }
     }
 
-    private async executeCompilationCommand(command: string, cwd: string): Promise<void> {
-        return new Promise((_resolve, _reject) => {
+    private async compile(settings: CompilerSettings): Promise<void> {
+        const command = this.buildCompilationCommand(settings.winePath, settings.compilerPath, settings.fileName);
+        return new Promise((resolve, _reject) => {
             // Wine + MetaEditor compile returns non-zero even on success.
             // Error and stderr do not show real compilation errors.
             // Just always resolve and check errors in the log file.
-            cp.exec(command, { cwd });
+            cp.exec(command, { cwd: settings.fileDir }, (_error, _stdout, _stderr) => {
+                vscode.window.showInformationMessage('Compilation completed. Check the log for details.');
+                resolve();
+            });
         });
+    }
+
+    private buildCompilationCommand(winePath: string, compilerPath: string, fileName: string): string {
+        return `"${winePath}" "${compilerPath}" /compile:"${fileName}" /log:"${COMPILATION_LOG_FILE_NAME}"`.trim();
     }
 
     private showCompilationLog(logFilePath: string): boolean {
