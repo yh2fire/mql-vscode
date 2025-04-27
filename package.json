@@ -1,12 +1,12 @@
 {
-    "name": "mql-vscode",
+    "name": "vscode-mql",
     "displayName": "MQL",
     "description": "MQL (MetaQuotes Language 4/5) language support for Visual Studio Code",
     "version": "0.0.1",
     "publisher": "yh2fire",
     "repository": {
         "type": "git",
-        "url": "https://github.com/yh2fire/mql-vscode"
+        "url": "https://github.com/yh2fire/vscode-mql"
     },
     "engines": {
         "vscode": "^1.99.0"
@@ -29,7 +29,7 @@
     "contributes": {
         "commands": [
             {
-                "command": "mql-vscode.compile",
+                "command": "vscode-mql.compile",
                 "title": "Compile",
                 "category": "MQL"
             }
@@ -38,25 +38,25 @@
             "title": "MQL",
             "type": "object",
             "properties": {
-                "mql-vscode.winePath": {
+                "vscode-mql.winePath": {
                     "type": "string",
                     "default": "",
                     "scope": "machine-overridable",
                     "description": "Path to the Wine executable. Only needed on Linux and MacOS."
                 },
-                "mql-vscode.metaEditor4Path": {
+                "vscode-mql.metaEditor4Path": {
                     "type": "string",
                     "default": "",
                     "scope": "machine-overridable",
                     "description": "Path to the MetaEditor 4 executable."
                 },
-                "mql-vscode.metaEditor5Path": {
+                "vscode-mql.metaEditor5Path": {
                     "type": "string",
                     "default": "",
                     "scope": "machine-overridable",
                     "description": "Path to the MetaEditor 5 executable."
                 },
-                "mql-vscode.retainCompilationLogFile": {
+                "vscode-mql.retainCompilationLogFile": {
                     "type": "boolean",
                     "default": false,
                     "scope": "machine-overridable",
@@ -67,7 +67,7 @@
         "menus": {
             "commandPalette": [
                 {
-                    "command": "mql-vscode.compile",
+                    "command": "vscode-mql.compile",
                     "when": "resourceExtname == '.mqh' || resourceExtname == '.mq4' || resourceExtname == '.mq5'"
                 }
             ]

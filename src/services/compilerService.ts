@@ -39,7 +39,7 @@ export class CompilerService {
     constructor(
         private logService: LogService
     ) {
-        this.config = vscode.workspace.getConfiguration('mql-vscode');
+        this.config = vscode.workspace.getConfiguration('vscode-mql');
     }
 
     public async compileCurrentFile(): Promise<void> {
