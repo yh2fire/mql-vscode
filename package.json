@@ -38,25 +38,25 @@
             "title": "MQL",
             "type": "object",
             "properties": {
-                "vscode-mql.winePath": {
+                "VSCodeMQL.pathToWine": {
                     "type": "string",
                     "default": "",
                     "scope": "machine-overridable",
                     "description": "Path to the Wine executable. Only needed on Linux and MacOS."
                 },
-                "vscode-mql.metaEditor4Path": {
+                "VSCodeMQL.pathToMetaEditor4": {
                     "type": "string",
                     "default": "",
                     "scope": "machine-overridable",
                     "description": "Path to the MetaEditor 4 executable."
                 },
-                "vscode-mql.metaEditor5Path": {
+                "VSCodeMQL.pathToMetaEditor5": {
                     "type": "string",
                     "default": "",
                     "scope": "machine-overridable",
                     "description": "Path to the MetaEditor 5 executable."
                 },
-                "vscode-mql.retainCompilationLogFile": {
+                "VSCodeMQL.retainCompilationLogFile": {
                     "type": "boolean",
                     "default": false,
                     "scope": "machine-overridable",

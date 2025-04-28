@@ -39,7 +39,7 @@ export class CompilerService {
     constructor(
         private logService: LogService
     ) {
-        this.config = vscode.workspace.getConfiguration('vscode-mql');
+        this.config = vscode.workspace.getConfiguration('VSCodeMQL');
     }
 
     public async compileCurrentFile(): Promise<void> {
@@ -114,9 +114,9 @@ export class CompilerService {
 
     private getWinePath(osName: string): string {
         if (osName === 'darwin') {
-            return this.config.get<string>('winePath') || '';
+            return this.config.get<string>('pathToWine') || '';
         } else if (osName === 'linux') {
-            return this.config.get<string>('winePath') || '';
+            return this.config.get<string>('pathToWine') || '';
         }
         return '';
     }
@@ -147,8 +147,8 @@ export class CompilerService {
 
     private getCompilerPath(fileExtension: string): string {
         const compilerPath = fileExtension === 'mq4' 
-            ? this.config.get<string>('metaEditor4Path') 
-            : this.config.get<string>('metaEditor5Path');
+            ? this.config.get<string>('pathToMetaEditor4') 
+            : this.config.get<string>('pathToMetaEditor5');
         return compilerPath || '';
     }
 
