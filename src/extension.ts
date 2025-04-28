@@ -7,7 +7,7 @@ export function activate(context: vscode.ExtensionContext) {
     const compilerService = new CompilerService(logService);
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('mql-vscode.compile', () => { compilerService.compileCurrentFile(); })
+        vscode.commands.registerCommand('vscode-mql.compile', () => { compilerService.compileCurrentFile(); })
     );
 }
 
